@@ -155,6 +155,7 @@ gtag('config', 'G-1GPDP7S5W6');
     <li class="chip snow"><span class="face">⛄</span><b>Snowman</b><small>Tap it, +1 life</small></li>
     <li class="chip rare"><span class="face">🟢</span><b>Grinch</b><small>Super rare, +10</small></li>
     <li class="chip bad"><span class="face">🪨</span><b>Coal</b><small>Leave it</small></li>
+    <li class="chip bad"><span class="face">⚫</span><b>Dark cap</b><small>Dull bauble, leave it</small></li>
   </ul>
   <button id="play">Play</button>
   <div id="homeScores"><h3>WORLD HIGH SCORES</h3><ol id="homeScoreList"><li class="empty">Loading…</li></ol></div>
@@ -288,7 +289,8 @@ const TYPES={
   gold:{pts:5,weight:14,hide:true},
   snow:{life:1,weight:8,hide:false},
   grinch:{pts:10,weight:2,hide:true},
-  coal:{bad:true,weight:16,hide:false}
+  coal:{bad:true,weight:16,hide:false},
+  dud:{bad:true,weight:7,hide:false} // look-alike bauble: dark cap, matte finish, no shine. Smash it and you lose a life
 };
 const COLS=['#d62828','#1d6fd6','#8e44ad','#e67e22','#c2185b','#16a085'];
 let banner=null;
@@ -296,7 +298,8 @@ function showBanner(n){banner={n:n,age:0};}
 let state='menu',lv=1,score=0,lives=3,t=0,spawnT=0,items=[],parts=[],floats=[],shake=0,elapsed=0;
 const MAXL=5;
 
-function pickType(){let tot=0;for(const k in TYPES)tot+=TYPES[k].weight;let r=Math.random()*tot;for(const k in TYPES){r-=TYPES[k].weight;if(r<=0)return k;}return'red';}
+function wt(k){if(k!=='dud')return TYPES[k].weight;return state==='play'?(elapsed<8?0:5+difficulty()*7):4;}
+function pickType(){let tot=0;for(const k in TYPES)tot+=wt(k);let r=Math.random()*tot;for(const k in TYPES){r-=wt(k);if(r<=0)return k;}return'red';}
 function levelAt(t){return 1+Math.floor(t/10);} // a new level every 10s
 function difficulty(){return state==='menu'?.25:Math.min(1,elapsed/90);} // 0..1 over 90s (gentle fixed level for the home-screen demo)
 function spawn(){
@@ -320,9 +323,9 @@ function loseLife(x,y){streak=0;lives--;shake=.3;setLives();sfx.miss();if(lives<
 
 // ---- Google Analytics events (safe no-op if gtag is blocked) ----
 function ga(n,p){try{if(typeof gtag==='function')gtag('event',n,p||{});}catch(e){}}
-let stats={smashed:0,gold:0,coal:0,life:0},plays=0,startedAt=0;
+let stats={smashed:0,gold:0,coal:0,dud:0,life:0},plays=0,startedAt=0;
 function startGame(){
-  plays++;startedAt=Date.now();stats={smashed:0,gold:0,coal:0,life:0};
+  plays++;startedAt=Date.now();stats={smashed:0,gold:0,coal:0,dud:0,life:0};
   ga('level_start',{level_name:'main',play_number:plays,is_replay:plays>1});
   commitScore();
   lastEntry=null;lv=1;$('lvl').textContent='Lv 1';
@@ -357,7 +360,7 @@ function endGame(){
   renderHS();flushTotal();
   const dur=Math.round((Date.now()-startedAt)/1000),isBest=score>prev&&score>0;
   ga('post_score',{score:score,level:lv,level_name:'main'});
-  ga('level_end',{level_name:'main',success:false,score:score,level_reached:lv,duration_s:dur,baubles_smashed:stats.smashed,golden_smashed:stats.gold,coal_hit:stats.coal,snowmen:stats.life,play_number:plays});
+  ga('level_end',{level_name:'main',success:false,score:score,level_reached:lv,duration_s:dur,baubles_smashed:stats.smashed,golden_smashed:stats.gold,coal_hit:stats.coal,dud_hit:stats.dud,snowmen:stats.life,play_number:plays});
   if(isBest)ga('new_high_score',{score:score,previous_best:prev});
   $('final').textContent=score;
   $('lvlmsg').textContent='Level '+lv+' reached';
@@ -379,7 +382,7 @@ function demoTap(o){
 function demoStep(dt){
   if(REDUCED)return;
   demoSpawnT-=dt;
-  if(demoSpawnT<=0&&items.length<7){spawn();const o=items[items.length-1];o.bot=o.type==='coal'?-1:.3+Math.random()*.55;demoSpawnT=.5+Math.random()*.5;}
+  if(demoSpawnT<=0&&items.length<7){spawn();const o=items[items.length-1];o.bot=(o.type==='coal'||o.type==='dud')?-1:.3+Math.random()*.55;demoSpawnT=.5+Math.random()*.5;}
   for(const o of items){
     if(o.dead)continue;
     o.age+=dt;o.pop=Math.min(1,o.pop+dt*8);
@@ -403,7 +406,8 @@ function hit(px,py){
     const rr=o.r*(o.type==='coal'?1.0:1.12)+o.slop; // fat-finger slop
     if(Math.hypot(o.x-px,o.y-py)<=rr){
       o.dead=true;const T=TYPES[o.type];
-      if(T.bad){stats.coal++;burst(o.x,o.y,'#222',22,240);float(o.x,o.y,'-1 ❤️','#ff6b6b');sfx.bad();loseLife();}
+      if(o.type==='dud'){stats.dud++;burst(o.x,o.y,o.col,16,240);burst(o.x,o.y,'#222',10,200);float(o.x,o.y,'Dud! -1 ❤️','#ff6b6b');sfx.bad();loseLife();}
+      else if(T.bad){stats.coal++;burst(o.x,o.y,'#222',22,240);float(o.x,o.y,'-1 ❤️','#ff6b6b');sfx.bad();loseLife();}
       else if(T.life){stats.life++;if(lives<MAXL)lives++;setLives();burst(o.x,o.y,'#ffffff',26,260);float(o.x,o.y,'+1 life','#9fffc0');sfx.life();shout('life');}
       else{
         stats.smashed++;unsent++;saveTally();if(o.type==='gold')stats.gold++;score+=T.pts;$('score').textContent=score;
@@ -455,20 +459,22 @@ function drawBauble(o,scale,alpha){
   }else{
     const base=o.type==='gold'?'#e6b422':o.type==='grinch'?'#3ec43e':o.col;
     // cap + hook
-    ctx.fillStyle='#d9d9d9';ctx.fillRect(-r*.18,-r*1.12,r*.36,r*.22);
-    ctx.strokeStyle='#d9d9d9';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(0,-r*1.28,r*.16,0,6.283);ctx.stroke();
+    const dud=o.type==='dud',capC=dud?'#3c3c46':'#d9d9d9';
+    ctx.fillStyle=capC;ctx.fillRect(-r*.18,-r*1.12,r*.36,r*.22);
+    ctx.strokeStyle=capC;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(0,-r*1.28,r*.16,0,6.283);ctx.stroke();
     // body
     const g=ctx.createRadialGradient(-r*.35,-r*.35,r*.1,0,0,r);
-    g.addColorStop(0,'#fff');g.addColorStop(.15,base);g.addColorStop(1,shade(base,-.45));
+    g.addColorStop(0,dud?shade(base,.12):'#fff');g.addColorStop(.15,base);g.addColorStop(1,shade(base,-.45));
     ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,r,0,6.283);ctx.fill();
     if(o.type==='gold'){ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,r*.72,.3,5.8);ctx.stroke();
       ctx.fillStyle='#fff';ctx.font=`${r*.9}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('★',0,2);}
     else if(o.type==='grinch'){ctx.fillStyle='#0d3d0d';ctx.beginPath();ctx.arc(-r*.3,-r*.1,r*.1,0,6.283);ctx.arc(r*.3,-r*.1,r*.1,0,6.283);ctx.fill();
       ctx.strokeStyle='#0d3d0d';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,r*.2,r*.4,.2,2.94);ctx.stroke();
       ctx.beginPath();ctx.moveTo(-r*.5,-r*.35);ctx.lineTo(-r*.15,-r*.22);ctx.moveTo(r*.5,-r*.35);ctx.lineTo(r*.15,-r*.22);ctx.stroke();}
+    else if(dud){ctx.strokeStyle='rgba(20,20,30,.5)';ctx.lineWidth=r*.07;ctx.beginPath();ctx.ellipse(0,0,r*.98,r*.2,0,0,6.283);ctx.stroke();}
     else{ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=r*.12;ctx.beginPath();ctx.arc(0,0,r*.6,.9,2.2);ctx.stroke();
       ctx.beginPath();ctx.arc(0,0,r*.6,3.9,5.2);ctx.stroke();}
-    ctx.fillStyle='rgba(255,255,255,.7)';ctx.beginPath();ctx.ellipse(-r*.4,-r*.42,r*.2,r*.12,-.7,0,6.283);ctx.fill();
+    if(!dud){ctx.fillStyle='rgba(255,255,255,.7)';ctx.beginPath();ctx.ellipse(-r*.4,-r*.42,r*.2,r*.12,-.7,0,6.283);ctx.fill();}
   }
   ctx.restore();
 }
