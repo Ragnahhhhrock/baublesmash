@@ -104,6 +104,25 @@ gtag('config', 'G-1GPDP7S5W6');
   #play{animation:pulse 1.2s ease-in-out infinite}
   #play:active{animation:none}
   @keyframes pulse{50%{transform:scale(1.06)}}
+  /* Home layout mirrors Pumpkin Smash: hero, title, tagline, counter card, 5 chips, button, scores */
+  #start{--gap:12px;justify-content:center;gap:var(--gap)}
+  #start>*{margin-top:0;margin-bottom:0}
+  #start h1{font-size:clamp(2.4rem,12.5vw,3.8rem);line-height:1;letter-spacing:.04em;color:#ff3b4e;white-space:normal;text-wrap:balance;text-shadow:0 3px 0 #6a0a16,0 6px 0 rgba(0,0,0,.35),0 0 26px rgba(255,59,78,.55)}
+  #start .sub{margin:0;color:#9fd8b6;font-size:1.05rem}
+  #tally{display:grid;justify-items:center;gap:2px;width:min(100%,380px);padding:12px 16px 14px;margin:0;background:linear-gradient(180deg,rgba(255,59,78,.16),rgba(8,28,20,.86) 70%);border:1px solid rgba(255,59,78,.55);border-radius:20px;box-shadow:0 0 28px rgba(255,59,78,.22),inset 0 1px 0 rgba(255,255,255,.06)}
+  #tally.hidden{display:none}
+  #tally .tface{font-size:1.5rem;line-height:1}
+  #tally b{font-size:clamp(2.6rem,13vw,3.6rem);line-height:1;letter-spacing:.04em;color:#ffd86b;font-variant-numeric:tabular-nums;text-shadow:0 3px 0 #7a4a00,0 0 22px rgba(255,213,74,.55)}
+  #tally .tlabel{font-size:.95rem;font-weight:600;color:#ffb3b8}
+  .crew{list-style:none;margin:4px 0;padding:0;width:min(100%,480px);display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:8px}
+  .chip{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px 8px;min-width:0;background:rgba(8,28,20,.84);border:1px solid rgba(255,255,255,.1);border-radius:16px}
+  .chip .face{font-size:2rem;line-height:1.1}
+  .chip b{font-size:.85rem;font-weight:600}
+  .chip small{font-size:.74rem;line-height:1.2;color:#9fc4b1}
+  .chip.good{border-color:rgba(255,59,78,.5)}.chip.gold{border-color:rgba(255,213,74,.6)}.chip.snow{border-color:rgba(191,230,255,.5)}.chip.rare{border-color:rgba(63,212,122,.7)}
+  .chip.bad{border-color:rgba(255,77,109,.6)}.chip.bad small{color:#ff9db0}
+  #start .foot{margin-top:6px}
+  @media (max-height:700px){.chip small{display:none}}
   @media (max-height:640px){#stage{height:88px}}
   @media (prefers-reduced-motion:reduce){#start h1,#play{animation:none}}
 </style>
@@ -115,20 +134,19 @@ gtag('config', 'G-1GPDP7S5W6');
 </div>
 
 <div id="start" class="overlay">
-  <h1>🎄 Bauble Smash 🎄</h1>
   <canvas id="stage" aria-hidden="true"></canvas>
-  <div class="sub">Smash the baubles before they hide!</div>
-  <table>
-    <tr><td>🔴</td><td>Bauble: +1</td></tr>
-    <tr><td>🟡</td><td>Golden bauble: +5</td></tr>
-    <tr><td>⛄</td><td>Snowman: +1 life</td></tr>
-    <tr><td>🟢</td><td>Grinch bauble: +10 (super rare)</td></tr>
-    <tr><td>🪨</td><td>Lump of coal: leave it alone!</td></tr>
-  </table>
-  <div class="sub">Miss a bauble or smash coal and you lose a life.</div>
-  <div id="tally" class="hidden">🔴 <b id="tallyN">0</b> baubles smashed worldwide</div>
+  <h1>Bauble Smash</h1>
+  <div class="sub">Smash the baubles before they hide.</div>
+  <div id="tally" class="hidden"><span class="tface">💥</span><b id="tallyN">0</b><span class="tlabel">baubles smashed worldwide</span></div>
+  <ul class="crew">
+    <li class="chip good"><span class="face">🔴</span><b>Bauble</b><small>Tap it, +1</small></li>
+    <li class="chip gold"><span class="face">🟡</span><b>Golden</b><small>Tap it, +5</small></li>
+    <li class="chip snow"><span class="face">⛄</span><b>Snowman</b><small>Tap it, +1 life</small></li>
+    <li class="chip rare"><span class="face">🟢</span><b>Grinch</b><small>Super rare, +10</small></li>
+    <li class="chip bad"><span class="face">🪨</span><b>Coal</b><small>Leave it</small></li>
+  </ul>
   <button id="play">Play</button>
-  <button class="hsbtn" id="hsBtn0">🏆 High scores</button>
+  <button class="hsbtn" id="hsBtn0">🏆 World high scores</button>
   <div class="foot">
     <a class="cocoa" href="https://buy.stripe.com/3cI4gr1PPfcx4gU0UcaAw0c" target="_blank" rel="noopener">☕ Buy me a cup of Hot Cocoa</a>
     <div style="margin-top:12px">Another <a href="https://malgordon.com" target="_blank" rel="noopener">Mal Gordon</a> creation</div>
