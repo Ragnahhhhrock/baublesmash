@@ -63,13 +63,17 @@ gtag('config', 'G-1GPDP7S5W6');
   a.cocoa:active{transform:translateY(2px);box-shadow:0 1px 0 #3e2b1e}
   #nameRow{margin:6px 0 10px}
   #nameRow input{font-size:18px;padding:10px 14px;border-radius:24px;border:2px solid #c0392b;background:#0b2a1c;color:#fff;text-align:center;width:min(220px,60vw);user-select:text;-webkit-user-select:text}
+  #pauseBtn{min-width:44px;min-height:44px;width:44px;height:44px;padding:0;font-size:20px;border-radius:50%;background:rgba(192,57,43,.25);border:2px solid #c0392b;box-shadow:none;color:#fff}
+  #pauseBtn:active{transform:scale(.92);box-shadow:none}
+  #pause button{display:block;margin-top:14px}
+  #pause button.alt{background:transparent;border:2px solid #9fd8b6;color:#9fd8b6;box-shadow:none;font-size:20px}
   .gs{margin-top:12px;color:#9fd8b6;font-size:15px}
   .gs div{margin:2px 0}
 </style>
 </head>
 <body>
 <div id="wrap">
-  <div id="hud"><span>🎄 <span id="score">0</span></span><span id="lives"></span><span id="best">Best 0</span></div>
+  <div id="hud"><span>🎄 <span id="score">0</span></span><span id="lives"></span><span id="best">Best 0</span><button id="pauseBtn" aria-label="Pause">⏸</button></div>
   <canvas id="c"></canvas>
 </div>
 
@@ -93,6 +97,13 @@ gtag('config', 'G-1GPDP7S5W6');
     <div style="margin-top:12px">Another <a href="https://malgordon.com" target="_blank" rel="noopener">Mal Gordon</a> creation</div>
     <div>Another <a href="https://30products30days.com" target="_blank" rel="noopener">30 Products 30 Days Challenge</a> creation</div>
   </div>
+</div>
+
+<div id="pause" class="overlay hidden">
+  <h1>⏸ Paused</h1>
+  <div class="sub">Take a breath. The baubles will wait.</div>
+  <button id="resume">Resume</button>
+  <button id="quit" class="alt">Quit to home</button>
 </div>
 
 <div id="over" class="overlay hidden">
@@ -202,7 +213,7 @@ function startGame(){
   try{localStorage.setItem('baubleName',($('pname').value||'').trim());}catch(e){}
   score=0;lives=3;items=[];parts=[];floats=[];elapsed=0;spawnT=.3;shake=0;
   $('score').textContent=0;setLives();
-  $('start').classList.add('hidden');$('over').classList.add('hidden');
+  $('start').classList.add('hidden');$('over').classList.add('hidden');$('pause').classList.add('hidden');
   state='play';resize();
   tone(200,.02,'sine',.001); // unlock audio on iOS/Android from the tap
   try{if(AC&&AC.state==='suspended')AC.resume();}catch(e){}
@@ -246,6 +257,14 @@ function hit(px,py){
 }
 cv.addEventListener('pointerdown',e=>{const r=cv.getBoundingClientRect();hit(e.clientX-r.left,e.clientY-r.top);e.preventDefault();});
 document.querySelectorAll('a.cocoa').forEach(a=>a.addEventListener('click',()=>ga('donate_click',{method:'stripe_hot_cocoa',location:a.closest('#over')?'game_over':'start'})));
+function pauseGame(){if(state!=='play')return;state='paused';musicPause();$('pause').classList.remove('hidden');}
+function resumeGame(){if(state!=='paused')return;$('pause').classList.add('hidden');state='play';musicPlay();}
+function quitGame(){if(state!=='paused'&&state!=='play')return;state='menu';musicPause();items=[];parts=[];floats=[];shake=0;$('pause').classList.add('hidden');$('start').classList.remove('hidden');renderHS();ga('quit_game',{score:score,level_name:'main'});}
+$('pauseBtn').addEventListener('click',pauseGame);
+$('resume').addEventListener('click',resumeGame);
+$('quit').addEventListener('click',quitGame);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseGame();});
+document.addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;if(e.key==='Escape'||e.key==='p'||e.key==='P'){state==='play'?pauseGame():resumeGame();}});
 $('play').addEventListener('click',startGame);
 $('again').addEventListener('click',startGame);
 
