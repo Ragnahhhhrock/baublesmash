@@ -231,6 +231,8 @@ const TYPES={
   coal:{bad:true,weight:16,hide:false}
 };
 const COLS=['#d62828','#1d6fd6','#8e44ad','#e67e22','#c2185b','#16a085'];
+let banner=null;
+function showBanner(n){banner={n:n,age:0};}
 let state='menu',lv=1,score=0,lives=3,t=0,spawnT=0,items=[],parts=[],floats=[],shake=0,elapsed=0;
 const MAXL=5;
 const snow=[];for(let i=0;i<70;i++)snow.push({x:Math.random(),y:Math.random(),r:1+Math.random()*2.5,s:.02+Math.random()*.05});
@@ -268,7 +270,7 @@ function startGame(){
   score=0;lives=3;items=[];parts=[];floats=[];elapsed=0;spawnT=.3;shake=0;
   $('score').textContent=0;setLives();
   $('start').classList.add('hidden');$('over').classList.add('hidden');$('pause').classList.add('hidden');
-  state='play';resize();
+  state='play';resize();showBanner(1);
   tone(200,.02,'sine',.001); // unlock audio on iOS/Android from the tap
   try{if(AC&&AC.state==='suspended')AC.resume();}catch(e){}
   musicPlay();
@@ -284,7 +286,7 @@ function commitScore(){
   saveHS(lastEntry);submitGlobal(lastEntry);renderHS();
 }
 function endGame(){
-  state='over';sfx.over();musicPause();
+  state='over';banner=null;sfx.over();musicPause();
   const prev=(loadHS()[0]||{}).score||0;
   pending=null;$('nameRow').classList.add('hidden');
   const hs=loadHS();
@@ -330,7 +332,7 @@ cv.addEventListener('pointerdown',e=>{const r=cv.getBoundingClientRect();hit(e.c
 document.querySelectorAll('a.cocoa').forEach(a=>a.addEventListener('click',()=>ga('donate_click',{method:'stripe_hot_cocoa',location:a.closest('#over')?'game_over':'start'})));
 function pauseGame(){if(state!=='play')return;state='paused';musicPause();$('pause').classList.remove('hidden');}
 function resumeGame(){if(state!=='paused')return;$('pause').classList.add('hidden');state='play';musicPlay();}
-function quitGame(){if(state!=='paused'&&state!=='play')return;state='menu';musicPause();items=[];parts=[];floats=[];shake=0;$('pause').classList.add('hidden');$('start').classList.remove('hidden');renderHS();flushTotal();renderTally();ga('quit_game',{score:score,level_name:'main'});}
+function quitGame(){if(state!=='paused'&&state!=='play')return;state='menu';banner=null;musicPause();items=[];parts=[];floats=[];shake=0;$('pause').classList.add('hidden');$('start').classList.remove('hidden');renderHS();flushTotal();renderTally();ga('quit_game',{score:score,level_name:'main'});}
 $('pauseBtn').addEventListener('click',pauseGame);
 $('resume').addEventListener('click',resumeGame);
 $('quit').addEventListener('click',quitGame);
@@ -429,7 +431,7 @@ function frame(now){
   if(state==='play'){
     elapsed+=dt;
     const L=levelAt(elapsed);
-    if(L!==lv){lv=L;$('lvl').textContent='Lv '+lv;float(W/2,H*.3,'Level '+lv+'!','#ffd86b');sfx.level();}
+    if(L!==lv){lv=L;$('lvl').textContent='Lv '+lv;showBanner(lv);sfx.level();}
     const d=difficulty();
     spawnT-=dt;
     if(spawnT<=0){spawn();spawnT=Math.max(.35,.95-d*.6)*(.7+Math.random()*.6);if(d>.4&&Math.random()<.3)spawn();}
@@ -459,6 +461,24 @@ function frame(now){
   ctx.textAlign='center';ctx.font='bold 26px system-ui';
   for(const f of floats){ctx.globalAlpha=1-f.age/.8;ctx.fillStyle=f.col;ctx.fillText(f.txt,f.x,f.y-f.age*60);}
   ctx.globalAlpha=1;
+  if(banner){
+    if(state==='play')banner.age+=dt;
+    const D=1.9,a=banner.age;
+    if(a>=D)banner=null;else{
+      const fin=Math.min(1,a/.25),fout=a>D-.4?(D-a)/.4:1;
+      const pop=1+.35*Math.pow(1-fin,2)+(a>.25?0:0);
+      ctx.save();ctx.globalAlpha=Math.max(0,fout);ctx.translate(W/2,H*.32);ctx.scale(pop*fin+.0001,pop*fin+.0001);
+      const bw2=Math.min(W*.8,340),bh=84;
+      ctx.fillStyle='rgba(5,16,11,.78)';ctx.strokeStyle='#ffd86b';ctx.lineWidth=3;
+      ctx.beginPath();ctx.roundRect?ctx.roundRect(-bw2/2,-bh/2,bw2,bh,22):ctx.rect(-bw2/2,-bh/2,bw2,bh);ctx.fill();ctx.stroke();
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillStyle='#ffd86b';ctx.shadowColor='#c0392b';ctx.shadowBlur=14;ctx.font='800 42px system-ui';
+      ctx.fillText('Level '+banner.n,0,banner.n>1?-8:0);
+      ctx.shadowBlur=0;
+      if(banner.n>1){ctx.fillStyle='#9fd8b6';ctx.font='700 16px system-ui';ctx.fillText('Level up! 🎄',0,26);}
+      ctx.restore();
+    }
+  }
   ctx.restore();
   requestAnimationFrame(frame);
 }
