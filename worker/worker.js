@@ -4,6 +4,8 @@ const KEY = 'top';
 const MAX = 10;
 const MAX_SCORE = 5000;
 const MAX_LEVEL = 99;
+const TOTAL_KEY = 'total';
+const MAX_ADD = 500; // max baubles credited per request
 
 function cors(req) {
   const o = req.headers.get('Origin');
@@ -21,6 +23,21 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });
+    if (url.pathname === '/total') {
+      let total = Number(await env.SCORES.get(TOTAL_KEY)) || 0;
+      if (req.method === 'GET') return json(req, { total });
+      if (req.method === 'POST') {
+        if (!ORIGINS.includes(req.headers.get('Origin'))) return json(req, { error: 'forbidden' }, 403);
+        let b;
+        try { b = await req.json(); } catch { return json(req, { error: 'bad json' }, 400); }
+        const add = Math.floor(Number(b.add));
+        if (!Number.isFinite(add) || add < 1 || add > MAX_ADD) return json(req, { error: 'bad add' }, 400);
+        total += add;
+        await env.SCORES.put(TOTAL_KEY, String(total));
+        return json(req, { total });
+      }
+      return json(req, { error: 'method' }, 405);
+    }
     if (url.pathname !== '/scores') return json(req, { error: 'not found' }, 404);
 
     let list = (await env.SCORES.get(KEY, 'json')) || [];

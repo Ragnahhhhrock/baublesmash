@@ -54,6 +54,8 @@ gtag('config', 'G-1GPDP7S5W6');
   td:first-child{font-size:26px;text-align:center}
   button{background:#c0392b;color:#fff;border:0;border-radius:36px;min-height:56px;min-width:200px;padding:14px 44px;font-size:24px;font-weight:700;cursor:pointer;touch-action:manipulation;box-shadow:0 4px 0 #7b241c}
   button:active{transform:translateY(3px);box-shadow:0 1px 0 #7b241c}
+  #tally{margin:0 0 12px;color:#ffd86b;font-size:18px;font-weight:700}
+  #tally b{font-size:1.3em}
   .hs{margin-top:16px;color:#ffd86b;font-size:15px}
   .hs div{margin:2px 0}
   #final{font-size:56px;font-weight:800;color:#ffd86b}
@@ -101,6 +103,7 @@ gtag('config', 'G-1GPDP7S5W6');
     <tr><td>🪨</td><td>Lump of coal: leave it alone!</td></tr>
   </table>
   <div class="sub">Miss a bauble or smash coal and you lose a life.</div>
+  <div id="tally">🔴 <b id="tallyN">0</b> baubles smashed <span id="tallyL">on this device</span></div>
   <div id="nameRow"><input id="pname" maxlength="12" placeholder="Your name" autocomplete="off"></div>
   <button id="play">Play</button>
   <button class="hsbtn" id="hsBtn0">🏆 High scores</button>
@@ -156,10 +159,26 @@ document.addEventListener('touchmove',e=>{if(!e.target.closest('.overlay'))e.pre
 const TOP=10;
 function loadHS(){try{return JSON.parse(localStorage.getItem('baubleHS')||'[]').map(e=>typeof e==='number'?{score:e,level:null,name:'',t:0}:e).filter(e=>e&&e.score>0)}catch(e){return[]}}
 function saveHS(e){try{const a=loadHS();a.push(e);a.sort((x,y)=>y.score-x.score||(x.t||0)-(y.t||0));localStorage.setItem('baubleHS',JSON.stringify(a.slice(0,TOP)));}catch(e){}}
+// ---- baubles-smashed tally (device total always; world total when the worker answers) ----
+let devTotal=0,worldTotal=null,unsent=0;
+try{devTotal=parseInt(localStorage.getItem('baubleTotal'),10)||0;unsent=parseInt(localStorage.getItem('baubleUnsent'),10)||0;}catch(e){}
+function renderTally(){
+  const w=worldTotal!==null;
+  $('tallyN').textContent=(w?worldTotal:devTotal).toLocaleString();
+  $('tallyL').textContent=w?'worldwide':'on this device';
+}
+function saveTally(){try{localStorage.setItem('baubleTotal',devTotal);localStorage.setItem('baubleUnsent',unsent);}catch(e){}}
+function loadTotal(){fetch(TOTAL_API).then(r=>r.json()).then(d=>{if(typeof d.total==='number'){worldTotal=d.total;renderTally();}}).catch(()=>{});}
+function flushTotal(){
+  const n=Math.min(unsent,500);if(n<1)return loadTotal();
+  fetch(TOTAL_API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({add:n})})
+    .then(r=>r.json()).then(d=>{if(typeof d.total==='number'){worldTotal=d.total;unsent=Math.max(0,unsent-n);saveTally();renderTally();}}).catch(()=>{});
+}
 function renderHS(){const a=loadHS();$('best').textContent='Best '+(a[0]?a[0].score:0);}
 
 // ---- global high scores (Cloudflare Worker) ----
 const API='https://api.baublesmash.com/scores';
+const TOTAL_API='https://api.baublesmash.com/total';
 function esc(t){return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 let world=null,tab='world',lastEntry=null;
 function loadGlobal(){fetch(API).then(r=>r.json()).then(d=>{world=d.scores||[];renderScores();}).catch(()=>{world=null;renderScores();});}
@@ -260,7 +279,7 @@ function endGame(){
   let nm='';try{nm=(localStorage.getItem('baubleName')||'').trim();}catch(e){}
   lastEntry={name:nm||'Anon',score:score,level:lv,t:Date.now()};
   if(score>0){saveHS(lastEntry);submitGlobal(lastEntry);}
-  renderHS();
+  renderHS();flushTotal();
   const dur=Math.round((Date.now()-startedAt)/1000),isBest=score>prev&&score>0;
   ga('post_score',{score:score,level:lv,level_name:'main'});
   ga('level_end',{level_name:'main',success:false,score:score,level_reached:lv,duration_s:dur,baubles_smashed:stats.smashed,golden_smashed:stats.gold,coal_hit:stats.coal,snowmen:stats.life,play_number:plays});
@@ -282,7 +301,7 @@ function hit(px,py){
       if(T.bad){stats.coal++;burst(o.x,o.y,'#222',22,240);float(o.x,o.y,'-1 ❤️','#ff6b6b');sfx.bad();loseLife();}
       else if(T.life){stats.life++;if(lives<MAXL)lives++;setLives();burst(o.x,o.y,'#ffffff',26,260);float(o.x,o.y,'+1 life','#9fffc0');sfx.life();}
       else{
-        stats.smashed++;if(o.type==='gold')stats.gold++;score+=T.pts;$('score').textContent=score;
+        stats.smashed++;devTotal++;unsent++;saveTally();if(o.type==='gold')stats.gold++;score+=T.pts;$('score').textContent=score;
         const c=o.type==='gold'?'#ffd86b':o.type==='grinch'?'#5fe05f':o.col;
         burst(o.x,o.y,c,o.type==='red'?18:30,o.type==='red'?260:340);burst(o.x,o.y,'#fff',6,200);
         float(o.x,o.y,'+'+T.pts,c);
@@ -297,7 +316,7 @@ cv.addEventListener('pointerdown',e=>{const r=cv.getBoundingClientRect();hit(e.c
 document.querySelectorAll('a.cocoa').forEach(a=>a.addEventListener('click',()=>ga('donate_click',{method:'stripe_hot_cocoa',location:a.closest('#over')?'game_over':'start'})));
 function pauseGame(){if(state!=='play')return;state='paused';musicPause();$('pause').classList.remove('hidden');}
 function resumeGame(){if(state!=='paused')return;$('pause').classList.add('hidden');state='play';musicPlay();}
-function quitGame(){if(state!=='paused'&&state!=='play')return;state='menu';musicPause();items=[];parts=[];floats=[];shake=0;$('pause').classList.add('hidden');$('start').classList.remove('hidden');renderHS();ga('quit_game',{score:score,level_name:'main'});}
+function quitGame(){if(state!=='paused'&&state!=='play')return;state='menu';musicPause();items=[];parts=[];floats=[];shake=0;$('pause').classList.add('hidden');$('start').classList.remove('hidden');renderHS();flushTotal();renderTally();ga('quit_game',{score:score,level_name:'main'});}
 $('pauseBtn').addEventListener('click',pauseGame);
 $('resume').addEventListener('click',resumeGame);
 $('quit').addEventListener('click',quitGame);
@@ -427,7 +446,7 @@ function frame(now){
   ctx.restore();
   requestAnimationFrame(frame);
 }
-resize();renderHS();setLives();try{$('pname').value=localStorage.getItem('baubleName')||'';}catch(e){}
+resize();renderHS();renderTally();flushTotal();setLives();try{$('pname').value=localStorage.getItem('baubleName')||'';}catch(e){}
 requestAnimationFrame(frame);
 window.__bauble={hit,startGame,get state(){return state},get score(){return score},get lives(){return lives},get level(){return lv},get items(){return items}};
 })();
