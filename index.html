@@ -105,7 +105,6 @@ gtag('config', 'G-1GPDP7S5W6');
   </table>
   <div class="sub">Miss a bauble or smash coal and you lose a life.</div>
   <div id="tally" class="hidden">🔴 <b id="tallyN">0</b> baubles smashed worldwide</div>
-  <div id="nameRow"><input id="pname" maxlength="12" placeholder="Your name" autocomplete="off"></div>
   <button id="play">Play</button>
   <button class="hsbtn" id="hsBtn0">🏆 High scores</button>
   <div class="foot">
@@ -127,6 +126,7 @@ gtag('config', 'G-1GPDP7S5W6');
   <div id="final">0</div>
   <div class="sub" id="lvlmsg"></div>
   <div class="sub" id="msg"></div>
+  <div id="nameRow" class="hidden"><div class="sub">🏆 You made the high scores! Enter your name:</div><input id="pname" maxlength="12" placeholder="Your name" autocomplete="off"> <button id="saveName">Save score</button></div>
   <button id="again">Play again</button>
   <button class="hsbtn" id="hsBtn1">🏆 High scores</button>
   <div class="foot">
@@ -198,7 +198,7 @@ function renderScores(){
   const rows=list.slice(0,TOP).map((r,i)=>`<tr${i===hi?' class="me"':''}><td>${i+1}</td><td class="nm">${esc(r.name||'Anon')}</td><td class="n">${r.score}</td><td class="n">${r.level||'–'}</td></tr>`).join('');
   $('scoreTable').innerHTML='<table><tr><th>#</th><th>Name</th><th class="n">Score</th><th class="n">Level</th></tr>'+rows+'</table>';
 }
-function showScores(){tab='world';renderScores();$('scores').classList.remove('hidden');loadGlobal();}
+function showScores(){commitScore();tab='world';renderScores();$('scores').classList.remove('hidden');loadGlobal();}
 
 // ---- music: two tracks back to back, looping endlessly during gameplay ----
 const TRACKS=['audio/track1.mp3','audio/track2.mp3'];
@@ -263,7 +263,7 @@ let stats={smashed:0,gold:0,coal:0,life:0},plays=0,startedAt=0;
 function startGame(){
   plays++;startedAt=Date.now();stats={smashed:0,gold:0,coal:0,life:0};
   ga('level_start',{level_name:'main',play_number:plays,is_replay:plays>1});
-  try{localStorage.setItem('baubleName',($('pname').value||'').trim());}catch(e){}
+  commitScore();
   lastEntry=null;lv=1;$('lvl').textContent='Lv 1';
   score=0;lives=3;items=[];parts=[];floats=[];elapsed=0;spawnT=.3;shake=0;
   $('score').textContent=0;setLives();
@@ -273,12 +273,26 @@ function startGame(){
   try{if(AC&&AC.state==='suspended')AC.resume();}catch(e){}
   musicPlay();
 }
+let pending=null;
+// name is only requested when the score earns a place on the high-score list
+function commitScore(){
+  if(!pending)return;
+  const nm=($('pname').value||'').trim().slice(0,12);
+  try{localStorage.setItem('baubleName',nm);}catch(e){}
+  lastEntry={name:nm||'Anon',score:pending.score,level:pending.level,t:pending.t};
+  pending=null;$('nameRow').classList.add('hidden');
+  saveHS(lastEntry);submitGlobal(lastEntry);renderHS();
+}
 function endGame(){
   state='over';sfx.over();musicPause();
   const prev=(loadHS()[0]||{}).score||0;
-  let nm='';try{nm=(localStorage.getItem('baubleName')||'').trim();}catch(e){}
-  lastEntry={name:nm||'Anon',score:score,level:lv,t:Date.now()};
-  if(score>0){saveHS(lastEntry);submitGlobal(lastEntry);}
+  pending=null;$('nameRow').classList.add('hidden');
+  const hs=loadHS();
+  if(score>0&&(hs.length<TOP||score>hs[hs.length-1].score)){
+    pending={score:score,level:lv,t:Date.now()};
+    let nm='';try{nm=(localStorage.getItem('baubleName')||'').trim();}catch(e){}
+    $('pname').value=nm;$('nameRow').classList.remove('hidden');
+  }
   renderHS();flushTotal();
   const dur=Math.round((Date.now()-startedAt)/1000),isBest=score>prev&&score>0;
   ga('post_score',{score:score,level:lv,level_name:'main'});
@@ -322,6 +336,8 @@ $('resume').addEventListener('click',resumeGame);
 $('quit').addEventListener('click',quitGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseGame();});
 document.addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;if(e.key==='Escape'||e.key==='p'||e.key==='P'){state==='play'?pauseGame():resumeGame();}});
+$('saveName').addEventListener('click',commitScore);
+$('pname').addEventListener('keydown',e=>{if(e.key==='Enter')commitScore();});
 $('hsBtn0').addEventListener('click',showScores);
 $('hsBtn1').addEventListener('click',showScores);
 $('scoresClose').addEventListener('click',()=>$('scores').classList.add('hidden'));
@@ -446,7 +462,7 @@ function frame(now){
   ctx.restore();
   requestAnimationFrame(frame);
 }
-resize();renderHS();renderTally();flushTotal();setLives();try{$('pname').value=localStorage.getItem('baubleName')||'';}catch(e){}
+resize();renderHS();renderTally();flushTotal();setLives();
 requestAnimationFrame(frame);
 window.__bauble={hit,startGame,get state(){return state},get score(){return score},get lives(){return lives},get level(){return lv},get items(){return items}};
 })();
