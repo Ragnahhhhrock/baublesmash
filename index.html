@@ -27,6 +27,14 @@
   .hs{margin-top:16px;color:#ffd86b;font-size:15px}
   .hs div{margin:2px 0}
   #final{font-size:56px;font-weight:800;color:#ffd86b}
+  .foot{margin-top:18px;font-size:13px;color:#9fd8b6;line-height:1.6}
+  .foot a{color:#ffd86b}
+  a.cocoa{display:inline-block;margin-top:12px;background:#6f4e37;color:#fff;text-decoration:none;font-weight:700;font-size:16px;padding:12px 22px;border-radius:30px;box-shadow:0 3px 0 #3e2b1e;touch-action:manipulation}
+  a.cocoa:active{transform:translateY(2px);box-shadow:0 1px 0 #3e2b1e}
+  #nameRow{margin:6px 0 10px}
+  #nameRow input{font-size:18px;padding:10px 14px;border-radius:24px;border:2px solid #c0392b;background:#0b2a1c;color:#fff;text-align:center;width:min(220px,60vw);user-select:text;-webkit-user-select:text}
+  .gs{margin-top:12px;color:#9fd8b6;font-size:15px}
+  .gs div{margin:2px 0}
 </style>
 </head>
 <body>
@@ -46,8 +54,15 @@
     <tr><td>🪨</td><td>Lump of coal: leave it alone!</td></tr>
   </table>
   <div class="sub">Miss a bauble or smash coal and you lose a life.</div>
+  <div id="nameRow"><input id="pname" maxlength="12" placeholder="Your name" autocomplete="off"></div>
   <button id="play">Play</button>
   <div class="hs" id="hs0"></div>
+  <div class="gs" id="gs0"></div>
+  <div class="foot">
+    <a class="cocoa" href="https://buy.stripe.com/3cI4gr1PPfcx4gU0UcaAw0c" target="_blank" rel="noopener">☕ Buy me a cup of Hot Cocoa</a>
+    <div style="margin-top:12px">Another <a href="https://malgordon.com" target="_blank" rel="noopener">Mal Gordon</a> creation</div>
+    <div>Another <a href="https://30products30days.com" target="_blank" rel="noopener">30 Products 30 Days Challenge</a> creation</div>
+  </div>
 </div>
 
 <div id="over" class="overlay hidden">
@@ -56,6 +71,12 @@
   <div class="sub" id="msg"></div>
   <button id="again">Play again</button>
   <div class="hs" id="hs1"></div>
+  <div class="gs" id="gs1"></div>
+  <div class="foot">
+    <a class="cocoa" href="https://buy.stripe.com/3cI4gr1PPfcx4gU0UcaAw0c" target="_blank" rel="noopener">☕ Buy me a cup of Hot Cocoa</a>
+    <div style="margin-top:12px">Another <a href="https://malgordon.com" target="_blank" rel="noopener">Mal Gordon</a> creation</div>
+    <div>Another <a href="https://30products30days.com" target="_blank" rel="noopener">30 Products 30 Days Challenge</a> creation</div>
+  </div>
 </div>
 
 <script>
@@ -75,6 +96,18 @@ document.addEventListener('touchmove',e=>{if(!e.target.closest('.overlay'))e.pre
 function loadHS(){try{return JSON.parse(localStorage.getItem('baubleHS')||'[]')}catch(e){return[]}}
 function saveHS(s){try{const a=loadHS();a.push(s);a.sort((x,y)=>y-x);localStorage.setItem('baubleHS',JSON.stringify(a.slice(0,5)));}catch(e){}}
 function renderHS(){const a=loadHS();const h='<b>High scores</b>'+(a.length?a.map((s,i)=>`<div>${i+1}. ${s}</div>`).join(''):'<div>none yet</div>');$('hs0').innerHTML=h;$('hs1').innerHTML=h;$('best').textContent='Best '+(a[0]||0);}
+
+// ---- global high scores (Cloudflare Worker) ----
+const API='https://api.baublesmash.com/scores';
+function esc(t){return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function renderGlobal(list){const h='<b>🌍 World top 10</b>'+(list&&list.length?list.map((r,i)=>`<div>${i+1}. ${esc(r.name)} — ${r.score}</div>`).join(''):'<div>no scores yet</div>');$('gs0').innerHTML=h;$('gs1').innerHTML=h;}
+function loadGlobal(){fetch(API).then(r=>r.json()).then(d=>renderGlobal(d.scores)).catch(()=>{$('gs0').innerHTML='';$('gs1').innerHTML='';});}
+function submitGlobal(sc){
+  let n='';try{n=(localStorage.getItem('baubleName')||'').trim();}catch(e){}
+  if(!sc)return;
+  fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:n||'Anon',score:sc})})
+    .then(r=>r.json()).then(d=>renderGlobal(d.scores)).catch(()=>{});
+}
 
 // ---- music: two tracks back to back, looping endlessly during gameplay ----
 const TRACKS=['audio/track1.mp3','audio/track2.mp3'];
@@ -131,6 +164,7 @@ function setLives(){let s='';for(let i=0;i<lives;i++)s+='❤️';$('lives').text
 function loseLife(x,y){lives--;shake=.3;setLives();sfx.miss();if(lives<=0)endGame();}
 
 function startGame(){
+  try{localStorage.setItem('baubleName',($('pname').value||'').trim());}catch(e){}
   score=0;lives=3;items=[];parts=[];floats=[];elapsed=0;spawnT=.3;shake=0;
   $('score').textContent=0;setLives();
   $('start').classList.add('hidden');$('over').classList.add('hidden');
@@ -143,6 +177,7 @@ function endGame(){
   state='over';sfx.over();musicPause();
   const prev=(loadHS()[0]||0);
   saveHS(score);renderHS();
+  submitGlobal(score);
   $('final').textContent=score;
   $('msg').textContent=score>prev&&score>0?'🎉 New high score!':'Merry smashing — try again!';
   setTimeout(()=>$('over').classList.remove('hidden'),500);
@@ -288,7 +323,7 @@ function frame(now){
   ctx.restore();
   requestAnimationFrame(frame);
 }
-resize();renderHS();setLives();
+resize();renderHS();setLives();loadGlobal();try{$('pname').value=localStorage.getItem('baubleName')||'';}catch(e){}
 requestAnimationFrame(frame);
 window.__bauble={hit,startGame,get state(){return state},get score(){return score},get lives(){return lives},get items(){return items}};
 })();
