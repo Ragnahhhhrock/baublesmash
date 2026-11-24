@@ -67,13 +67,26 @@ gtag('config', 'G-1GPDP7S5W6');
   #pauseBtn:active{transform:scale(.92);box-shadow:none}
   #pause button{display:block;margin-top:14px}
   #pause button.alt{background:transparent;border:2px solid #9fd8b6;color:#9fd8b6;box-shadow:none;font-size:20px}
-  .gs{margin-top:12px;color:#9fd8b6;font-size:15px}
-  .gs div{margin:2px 0}
+  button.hsbtn{min-width:0;min-height:44px;padding:8px 26px;font-size:18px;margin-top:12px;background:transparent;border:2px solid #ffd86b;color:#ffd86b;box-shadow:none}
+  #lvl{font-size:.7em;color:#ffd86b;margin-left:6px}
+  #scores{background:rgba(5,16,11,.98);z-index:5}
+  #scores .tabs{display:flex;gap:8px;margin:6px 0 10px}
+  #scores .tabs button{min-width:0;min-height:40px;padding:6px 18px;font-size:16px;background:transparent;border:2px solid #9fd8b6;color:#9fd8b6;box-shadow:none}
+  #scores .tabs button.on{background:#c0392b;border-color:#c0392b;color:#fff}
+  #scores table{width:min(420px,94vw);margin:4px 0 14px}
+  #scores th{color:#9fd8b6;font-size:13px;font-weight:600;padding:4px 8px;text-align:left;border-bottom:1px solid #1d4a34}
+  #scores td,#scores th{white-space:nowrap}
+  #scores td{font-size:17px;padding:5px 8px}
+  #scores td:first-child{font-size:17px;text-align:center;width:2em}
+  #scores th.n,#scores td.n{text-align:right}
+  #scores td.nm{max-width:34vw;overflow:hidden;text-overflow:ellipsis}
+  #scores tr.me td{background:rgba(192,57,43,.35);color:#ffd86b;font-weight:700}
+  #scores .empty{color:#9fd8b6;padding:18px 0}
 </style>
 </head>
 <body>
 <div id="wrap">
-  <div id="hud"><span>🎄 <span id="score">0</span></span><span id="lives"></span><span id="best">Best 0</span><button id="pauseBtn" aria-label="Pause">⏸</button></div>
+  <div id="hud"><span>🎄 <span id="score">0</span><span id="lvl">Lv 1</span></span><span id="lives"></span><span id="best">Best 0</span><button id="pauseBtn" aria-label="Pause">⏸</button></div>
   <canvas id="c"></canvas>
 </div>
 
@@ -90,8 +103,7 @@ gtag('config', 'G-1GPDP7S5W6');
   <div class="sub">Miss a bauble or smash coal and you lose a life.</div>
   <div id="nameRow"><input id="pname" maxlength="12" placeholder="Your name" autocomplete="off"></div>
   <button id="play">Play</button>
-  <div class="hs" id="hs0"></div>
-  <div class="gs" id="gs0"></div>
+  <button class="hsbtn" id="hsBtn0">🏆 High scores</button>
   <div class="foot">
     <a class="cocoa" href="https://buy.stripe.com/3cI4gr1PPfcx4gU0UcaAw0c" target="_blank" rel="noopener">☕ Buy me a cup of Hot Cocoa</a>
     <div style="margin-top:12px">Another <a href="https://malgordon.com" target="_blank" rel="noopener">Mal Gordon</a> creation</div>
@@ -109,15 +121,22 @@ gtag('config', 'G-1GPDP7S5W6');
 <div id="over" class="overlay hidden">
   <h1>Game Over</h1>
   <div id="final">0</div>
+  <div class="sub" id="lvlmsg"></div>
   <div class="sub" id="msg"></div>
   <button id="again">Play again</button>
-  <div class="hs" id="hs1"></div>
-  <div class="gs" id="gs1"></div>
+  <button class="hsbtn" id="hsBtn1">🏆 High scores</button>
   <div class="foot">
     <a class="cocoa" href="https://buy.stripe.com/3cI4gr1PPfcx4gU0UcaAw0c" target="_blank" rel="noopener">☕ Buy me a cup of Hot Cocoa</a>
     <div style="margin-top:12px">Another <a href="https://malgordon.com" target="_blank" rel="noopener">Mal Gordon</a> creation</div>
     <div>Another <a href="https://30products30days.com" target="_blank" rel="noopener">30 Products 30 Days Challenge</a> creation</div>
   </div>
+</div>
+
+<div id="scores" class="overlay hidden">
+  <h1>🏆 High Scores</h1>
+  <div class="tabs"><button id="tabWorld" class="on">🌍 World</button><button id="tabMine">📱 My device</button></div>
+  <div id="scoreTable"></div>
+  <button id="scoresClose">Close</button>
 </div>
 
 <script>
@@ -134,21 +153,33 @@ if(window.ResizeObserver)new ResizeObserver(resize).observe(cv);
 document.addEventListener('touchmove',e=>{if(!e.target.closest('.overlay'))e.preventDefault();},{passive:false});
 
 // ---- storage (best-effort) ----
-function loadHS(){try{return JSON.parse(localStorage.getItem('baubleHS')||'[]')}catch(e){return[]}}
-function saveHS(s){try{const a=loadHS();a.push(s);a.sort((x,y)=>y-x);localStorage.setItem('baubleHS',JSON.stringify(a.slice(0,5)));}catch(e){}}
-function renderHS(){const a=loadHS();const h='<b>High scores</b>'+(a.length?a.map((s,i)=>`<div>${i+1}. ${s}</div>`).join(''):'<div>none yet</div>');$('hs0').innerHTML=h;$('hs1').innerHTML=h;$('best').textContent='Best '+(a[0]||0);}
+const TOP=10;
+function loadHS(){try{return JSON.parse(localStorage.getItem('baubleHS')||'[]').map(e=>typeof e==='number'?{score:e,level:null,name:'',t:0}:e).filter(e=>e&&e.score>0)}catch(e){return[]}}
+function saveHS(e){try{const a=loadHS();a.push(e);a.sort((x,y)=>y.score-x.score||(x.t||0)-(y.t||0));localStorage.setItem('baubleHS',JSON.stringify(a.slice(0,TOP)));}catch(e){}}
+function renderHS(){const a=loadHS();$('best').textContent='Best '+(a[0]?a[0].score:0);}
 
 // ---- global high scores (Cloudflare Worker) ----
 const API='https://api.baublesmash.com/scores';
 function esc(t){return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function renderGlobal(list){const h='<b>🌍 World top 10</b>'+(list&&list.length?list.map((r,i)=>`<div>${i+1}. ${esc(r.name)} — ${r.score}</div>`).join(''):'<div>no scores yet</div>');$('gs0').innerHTML=h;$('gs1').innerHTML=h;}
-function loadGlobal(){fetch(API).then(r=>r.json()).then(d=>renderGlobal(d.scores)).catch(()=>{$('gs0').innerHTML='';$('gs1').innerHTML='';});}
-function submitGlobal(sc){
-  let n='';try{n=(localStorage.getItem('baubleName')||'').trim();}catch(e){}
-  if(!sc)return;
-  fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:n||'Anon',score:sc})})
-    .then(r=>r.json()).then(d=>renderGlobal(d.scores)).catch(()=>{});
+let world=null,tab='world',lastEntry=null;
+function loadGlobal(){fetch(API).then(r=>r.json()).then(d=>{world=d.scores||[];renderScores();}).catch(()=>{world=null;renderScores();});}
+function submitGlobal(e){
+  if(!e.score)return;
+  fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:e.name,score:e.score,level:e.level})})
+    .then(r=>r.json()).then(d=>{if(d.scores){world=d.scores;renderScores();}}).catch(()=>{});
 }
+
+// ---- high score table ----
+function renderScores(){
+  $('tabWorld').classList.toggle('on',tab==='world');$('tabMine').classList.toggle('on',tab==='mine');
+  const list=tab==='world'?world:loadHS();
+  if(list===null){$('scoreTable').innerHTML='<div class="empty">World scores unavailable right now.</div>';return;}
+  if(!list.length){$('scoreTable').innerHTML='<div class="empty">No scores yet — go smash some baubles!</div>';return;}
+  let hi=-1;if(lastEntry)hi=list.findIndex(r=>r.score===lastEntry.score&&(r.level||0)===(lastEntry.level||0)&&(r.name||'Anon')===lastEntry.name);
+  const rows=list.slice(0,TOP).map((r,i)=>`<tr${i===hi?' class="me"':''}><td>${i+1}</td><td class="nm">${esc(r.name||'Anon')}</td><td class="n">${r.score}</td><td class="n">${r.level||'–'}</td></tr>`).join('');
+  $('scoreTable').innerHTML='<table><tr><th>#</th><th>Name</th><th class="n">Score</th><th class="n">Level</th></tr>'+rows+'</table>';
+}
+function showScores(){tab='world';renderScores();$('scores').classList.remove('hidden');loadGlobal();}
 
 // ---- music: two tracks back to back, looping endlessly during gameplay ----
 const TRACKS=['audio/track1.mp3','audio/track2.mp3'];
@@ -166,6 +197,7 @@ const sfx={
   gold(){[880,1175,1568].forEach((f,i)=>setTimeout(()=>tone(f,.18,'sine',.16),i*70));},
   life(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.15,'triangle',.15),i*60));},
   grinch(){[392,523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>tone(f,.2,'sawtooth',.1),i*55));},
+  level(){[659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.14,'triangle',.12),i*70));},
   bad(){tone(140,.35,'sawtooth',.2,.5);},
   miss(){tone(300,.25,'sine',.15,.5);},
   over(){[392,330,262,196].forEach((f,i)=>setTimeout(()=>tone(f,.3,'triangle',.18),i*180));}
@@ -180,11 +212,12 @@ const TYPES={
   coal:{bad:true,weight:16,hide:false}
 };
 const COLS=['#d62828','#1d6fd6','#8e44ad','#e67e22','#c2185b','#16a085'];
-let state='menu',score=0,lives=3,t=0,spawnT=0,items=[],parts=[],floats=[],shake=0,elapsed=0;
+let state='menu',lv=1,score=0,lives=3,t=0,spawnT=0,items=[],parts=[],floats=[],shake=0,elapsed=0;
 const MAXL=5;
 const snow=[];for(let i=0;i<70;i++)snow.push({x:Math.random(),y:Math.random(),r:1+Math.random()*2.5,s:.02+Math.random()*.05});
 
 function pickType(){let tot=0;for(const k in TYPES)tot+=TYPES[k].weight;let r=Math.random()*tot;for(const k in TYPES){r-=TYPES[k].weight;if(r<=0)return k;}return'red';}
+function levelAt(t){return 1+Math.floor(t/10);} // a new level every 10s
 function difficulty(){return Math.min(1,elapsed/90);} // 0..1 over 90s
 function spawn(){
   const type=pickType();
@@ -212,6 +245,7 @@ function startGame(){
   plays++;startedAt=Date.now();stats={smashed:0,gold:0,coal:0,life:0};
   ga('level_start',{level_name:'main',play_number:plays,is_replay:plays>1});
   try{localStorage.setItem('baubleName',($('pname').value||'').trim());}catch(e){}
+  lastEntry=null;lv=1;$('lvl').textContent='Lv 1';
   score=0;lives=3;items=[];parts=[];floats=[];elapsed=0;spawnT=.3;shake=0;
   $('score').textContent=0;setLives();
   $('start').classList.add('hidden');$('over').classList.add('hidden');$('pause').classList.add('hidden');
@@ -222,14 +256,17 @@ function startGame(){
 }
 function endGame(){
   state='over';sfx.over();musicPause();
-  const prev=(loadHS()[0]||0);
-  saveHS(score);renderHS();
-  submitGlobal(score);
+  const prev=(loadHS()[0]||{}).score||0;
+  let nm='';try{nm=(localStorage.getItem('baubleName')||'').trim();}catch(e){}
+  lastEntry={name:nm||'Anon',score:score,level:lv,t:Date.now()};
+  if(score>0){saveHS(lastEntry);submitGlobal(lastEntry);}
+  renderHS();
   const dur=Math.round((Date.now()-startedAt)/1000),isBest=score>prev&&score>0;
-  ga('post_score',{score:score,level_name:'main'});
-  ga('level_end',{level_name:'main',success:false,score:score,duration_s:dur,baubles_smashed:stats.smashed,golden_smashed:stats.gold,coal_hit:stats.coal,snowmen:stats.life,play_number:plays});
+  ga('post_score',{score:score,level:lv,level_name:'main'});
+  ga('level_end',{level_name:'main',success:false,score:score,level_reached:lv,duration_s:dur,baubles_smashed:stats.smashed,golden_smashed:stats.gold,coal_hit:stats.coal,snowmen:stats.life,play_number:plays});
   if(isBest)ga('new_high_score',{score:score,previous_best:prev});
   $('final').textContent=score;
+  $('lvlmsg').textContent='Level '+lv+' reached';
   $('msg').textContent=score>prev&&score>0?'🎉 New high score!':'Merry smashing — try again!';
   setTimeout(()=>$('over').classList.remove('hidden'),500);
 }
@@ -266,6 +303,11 @@ $('resume').addEventListener('click',resumeGame);
 $('quit').addEventListener('click',quitGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseGame();});
 document.addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;if(e.key==='Escape'||e.key==='p'||e.key==='P'){state==='play'?pauseGame():resumeGame();}});
+$('hsBtn0').addEventListener('click',showScores);
+$('hsBtn1').addEventListener('click',showScores);
+$('scoresClose').addEventListener('click',()=>$('scores').classList.add('hidden'));
+$('tabWorld').addEventListener('click',()=>{tab='world';renderScores();});
+$('tabMine').addEventListener('click',()=>{tab='mine';renderScores();});
 $('play').addEventListener('click',startGame);
 $('again').addEventListener('click',startGame);
 
@@ -351,6 +393,8 @@ function frame(now){
   drawBG(dt*1000/16*0+dt*60);
   if(state==='play'){
     elapsed+=dt;
+    const L=levelAt(elapsed);
+    if(L!==lv){lv=L;$('lvl').textContent='Lv '+lv;float(W/2,H*.3,'Level '+lv+'!','#ffd86b');sfx.level();}
     const d=difficulty();
     spawnT-=dt;
     if(spawnT<=0){spawn();spawnT=Math.max(.35,.95-d*.6)*(.7+Math.random()*.6);if(d>.4&&Math.random()<.3)spawn();}
@@ -383,9 +427,9 @@ function frame(now){
   ctx.restore();
   requestAnimationFrame(frame);
 }
-resize();renderHS();setLives();loadGlobal();try{$('pname').value=localStorage.getItem('baubleName')||'';}catch(e){}
+resize();renderHS();setLives();try{$('pname').value=localStorage.getItem('baubleName')||'';}catch(e){}
 requestAnimationFrame(frame);
-window.__bauble={hit,startGame,get state(){return state},get score(){return score},get lives(){return lives},get items(){return items}};
+window.__bauble={hit,startGame,get state(){return state},get score(){return score},get lives(){return lives},get level(){return lv},get items(){return items}};
 })();
 </script>
 </body>

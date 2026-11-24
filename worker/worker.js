@@ -3,6 +3,7 @@ const ORIGINS = ['https://baublesmash.com', 'https://www.baublesmash.com'];
 const KEY = 'top';
 const MAX = 10;
 const MAX_SCORE = 5000;
+const MAX_LEVEL = 99;
 
 function cors(req) {
   const o = req.headers.get('Origin');
@@ -33,7 +34,8 @@ export default {
       const score = Math.floor(Number(b.score));
       if (!Number.isFinite(score) || score < 1 || score > MAX_SCORE) return json(req, { error: 'bad score' }, 400);
       const name = String(b.name || 'Anon').replace(/[^\p{L}\p{N} _.-]/gu, '').trim().slice(0, 12) || 'Anon';
-      list.push({ name, score, t: Date.now() });
+      const level = Math.min(MAX_LEVEL, Math.max(1, Math.floor(Number(b.level)) || 1));
+      list.push({ name, score, level, t: Date.now() });
       list.sort((a, c) => c.score - a.score || a.t - c.t);
       list = list.slice(0, MAX);
       await env.SCORES.put(KEY, JSON.stringify(list));
