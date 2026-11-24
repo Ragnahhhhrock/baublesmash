@@ -193,7 +193,12 @@ function float(x,y,txt,col){floats.push({x,y,txt,col,age:0});}
 function setLives(){let s='';for(let i=0;i<lives;i++)s+='❤️';$('lives').textContent=s||'💔';}
 function loseLife(x,y){lives--;shake=.3;setLives();sfx.miss();if(lives<=0)endGame();}
 
+// ---- Google Analytics events (safe no-op if gtag is blocked) ----
+function ga(n,p){try{if(typeof gtag==='function')gtag('event',n,p||{});}catch(e){}}
+let stats={smashed:0,gold:0,coal:0,life:0},plays=0,startedAt=0;
 function startGame(){
+  plays++;startedAt=Date.now();stats={smashed:0,gold:0,coal:0,life:0};
+  ga('level_start',{level_name:'main',play_number:plays,is_replay:plays>1});
   try{localStorage.setItem('baubleName',($('pname').value||'').trim());}catch(e){}
   score=0;lives=3;items=[];parts=[];floats=[];elapsed=0;spawnT=.3;shake=0;
   $('score').textContent=0;setLives();
@@ -208,6 +213,10 @@ function endGame(){
   const prev=(loadHS()[0]||0);
   saveHS(score);renderHS();
   submitGlobal(score);
+  const dur=Math.round((Date.now()-startedAt)/1000),isBest=score>prev&&score>0;
+  ga('post_score',{score:score,level_name:'main'});
+  ga('level_end',{level_name:'main',success:false,score:score,duration_s:dur,baubles_smashed:stats.smashed,golden_smashed:stats.gold,coal_hit:stats.coal,snowmen:stats.life,play_number:plays});
+  if(isBest)ga('new_high_score',{score:score,previous_best:prev});
   $('final').textContent=score;
   $('msg').textContent=score>prev&&score>0?'🎉 New high score!':'Merry smashing — try again!';
   setTimeout(()=>$('over').classList.remove('hidden'),500);
@@ -221,10 +230,10 @@ function hit(px,py){
     const rr=o.r*(o.type==='coal'?1.0:1.12)+12; // fat-finger slop
     if(Math.hypot(o.x-px,o.y-py)<=rr){
       o.dead=true;const T=TYPES[o.type];
-      if(T.bad){burst(o.x,o.y,'#222',22,240);float(o.x,o.y,'-1 ❤️','#ff6b6b');sfx.bad();loseLife();}
-      else if(T.life){if(lives<MAXL)lives++;setLives();burst(o.x,o.y,'#ffffff',26,260);float(o.x,o.y,'+1 life','#9fffc0');sfx.life();}
+      if(T.bad){stats.coal++;burst(o.x,o.y,'#222',22,240);float(o.x,o.y,'-1 ❤️','#ff6b6b');sfx.bad();loseLife();}
+      else if(T.life){stats.life++;if(lives<MAXL)lives++;setLives();burst(o.x,o.y,'#ffffff',26,260);float(o.x,o.y,'+1 life','#9fffc0');sfx.life();}
       else{
-        score+=T.pts;$('score').textContent=score;
+        stats.smashed++;if(o.type==='gold')stats.gold++;score+=T.pts;$('score').textContent=score;
         const c=o.type==='gold'?'#ffd86b':o.type==='grinch'?'#5fe05f':o.col;
         burst(o.x,o.y,c,o.type==='red'?18:30,o.type==='red'?260:340);burst(o.x,o.y,'#fff',6,200);
         float(o.x,o.y,'+'+T.pts,c);
@@ -236,6 +245,7 @@ function hit(px,py){
   }
 }
 cv.addEventListener('pointerdown',e=>{const r=cv.getBoundingClientRect();hit(e.clientX-r.left,e.clientY-r.top);e.preventDefault();});
+document.querySelectorAll('a.cocoa').forEach(a=>a.addEventListener('click',()=>ga('donate_click',{method:'stripe_hot_cocoa',location:a.closest('#over')?'game_over':'start'})));
 $('play').addEventListener('click',startGame);
 $('again').addEventListener('click',startGame);
 
