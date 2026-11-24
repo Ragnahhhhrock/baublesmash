@@ -188,16 +188,17 @@ function pickType(){let tot=0;for(const k in TYPES)tot+=TYPES[k].weight;let r=Ma
 function difficulty(){return Math.min(1,elapsed/90);} // 0..1 over 90s
 function spawn(){
   const type=pickType();
-  const R=Math.max(30,Math.min(54,W*.115)); // big, thumb-friendly
+  const d=difficulty();
+  const R0=Math.max(30,Math.min(54,W*.115)); // big, thumb-friendly at the start
+  const R=R0*(1-d*.55); // baubles shrink as the player progresses (down to 45%)
   let x,y,tries=0;
   const G=geo();
   do{y=G.apexY+R*2.4+Math.random()*(G.baseY-G.apexY-R*3.4);
      const hw=Math.max(0,G.bw*(y-G.apexY)/(G.baseY-G.apexY)-R*.5);
      x=G.cx+(Math.random()*2-1)*hw;tries++;}
   while(tries<14&&items.some(o=>Math.hypot(o.x-x,o.y-y)<R*2.1));
-  const d=difficulty();
   const life=(type==='grinch'?1.1:1.9)-d*.9+Math.random()*.3;
-  items.push({type,x,y,r:R,age:0,life:Math.max(.7,life),col:COLS[Math.floor(Math.random()*COLS.length)],pop:0,dead:false});
+  items.push({type,x,y,r:R,age:0,life:Math.max(.7,life),slop:12*(1-d*.6),col:COLS[Math.floor(Math.random()*COLS.length)],pop:0,dead:false});
 }
 function burst(x,y,col,n,spd){for(let i=0;i<n;i++){const a=Math.random()*6.283,s=(.3+Math.random())*(spd||260);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-80,life:.6+Math.random()*.5,age:0,c:col,sz:3+Math.random()*5,rot:Math.random()*6});}}
 function float(x,y,txt,col){floats.push({x,y,txt,col,age:0});}
@@ -238,7 +239,7 @@ function hit(px,py){
   if(state!=='play')return;
   for(let i=items.length-1;i>=0;i--){
     const o=items[i];if(o.dead)continue;
-    const rr=o.r*(o.type==='coal'?1.0:1.12)+12; // fat-finger slop
+    const rr=o.r*(o.type==='coal'?1.0:1.12)+o.slop; // fat-finger slop
     if(Math.hypot(o.x-px,o.y-py)<=rr){
       o.dead=true;const T=TYPES[o.type];
       if(T.bad){stats.coal++;burst(o.x,o.y,'#222',22,240);float(o.x,o.y,'-1 ❤️','#ff6b6b');sfx.bad();loseLife();}
