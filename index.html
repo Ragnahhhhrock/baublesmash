@@ -76,6 +76,14 @@ function loadHS(){try{return JSON.parse(localStorage.getItem('baubleHS')||'[]')}
 function saveHS(s){try{const a=loadHS();a.push(s);a.sort((x,y)=>y-x);localStorage.setItem('baubleHS',JSON.stringify(a.slice(0,5)));}catch(e){}}
 function renderHS(){const a=loadHS();const h='<b>High scores</b>'+(a.length?a.map((s,i)=>`<div>${i+1}. ${s}</div>`).join(''):'<div>none yet</div>');$('hs0').innerHTML=h;$('hs1').innerHTML=h;$('best').textContent='Best '+(a[0]||0);}
 
+// ---- music: two tracks back to back, looping endlessly during gameplay ----
+const TRACKS=['audio/track1.mp3','audio/track2.mp3'];
+let trackIdx=0;
+const music=new Audio(TRACKS[0]);music.preload='auto';music.volume=.6;
+music.addEventListener('ended',()=>{trackIdx=(trackIdx+1)%TRACKS.length;music.src=TRACKS[trackIdx];music.play().catch(()=>{});});
+function musicPlay(){try{music.play().catch(()=>{});}catch(e){}}
+function musicPause(){try{music.pause();}catch(e){}}
+
 // ---- audio ----
 let AC=null;
 function tone(f,d,type,vol,slide){try{if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=f;if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,f*slide),AC.currentTime+d);g.gain.value=vol||.15;g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d);}catch(e){}}
@@ -129,9 +137,10 @@ function startGame(){
   state='play';resize();
   tone(200,.02,'sine',.001); // unlock audio on iOS/Android from the tap
   try{if(AC&&AC.state==='suspended')AC.resume();}catch(e){}
+  musicPlay();
 }
 function endGame(){
-  state='over';sfx.over();
+  state='over';sfx.over();musicPause();
   const prev=(loadHS()[0]||0);
   saveHS(score);renderHS();
   $('final').textContent=score;
