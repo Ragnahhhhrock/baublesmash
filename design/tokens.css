@@ -1,0 +1,45 @@
+/* Bauble Smash design tokens */
+:root {
+  /* Colour: night + tree */
+  --bs-night: #0B2A22;   /* page background */
+  --bs-deep:  #061A15;   /* bg gradient bottom, text on gold */
+  --bs-pine:  #14503F;
+  --bs-tree:  #1E7A57;
+  --bs-tree-light: #2A9468;
+  /* Colour: baubles (core brand) */
+  --bs-red:   #E5283B;   /* primary action, SMASH */
+  --bs-red-dark: #A8142A;/* shadows, pressed */
+  --bs-gold:  #FFC93C;   /* highlights, badges, star */
+  --bs-gold-dark: #E8A317;
+  --bs-ice:   #9FE3F5;   /* secondary text, ice bauble */
+  --bs-ice-dark: #4FB6D6;
+  --bs-plum:  #8E3AA8;
+  --bs-plum-dark: #5E1F78;
+  --bs-cream: #FFF8EC;   /* primary text on dark */
+
+  /* Type */
+  --bs-font-display: "Archivo Black", Impact, sans-serif;
+  --bs-font-body: "DM Sans", system-ui, -apple-system, sans-serif;
+  --bs-text-hero: clamp(3rem, 14vw, 8rem);
+  --bs-text-h1: 2.5rem; --bs-text-h2: 1.75rem;
+  --bs-text-body: 1rem; --bs-text-small: .8125rem;
+
+  /* Space (4px base), radius, motion */
+  --bs-space-1: 4px; --bs-space-2: 8px; --bs-space-3: 12px;
+  --bs-space-4: 16px; --bs-space-6: 24px; --bs-space-8: 32px;
+  --bs-radius-sm: 8px; --bs-radius-md: 16px; --bs-radius-pill: 999px;
+  --bs-shadow-pop: 0 6px 0 var(--bs-red-dark);   /* chunky "3D" press */
+  --bs-glow-gold: 0 0 40px rgb(255 201 60 / .35);
+  --bs-ease-pop: cubic-bezier(.34, 1.56, .64, 1);
+  --bs-dur-tap: 120ms; --bs-dur-smash: 450ms;
+  --bs-tap-target: 48px;  /* mobile first minimum */
+}
+body { background: linear-gradient(var(--bs-night), var(--bs-deep)); color: var(--bs-cream); font-family: var(--bs-font-body); }
+h1, h2, .bs-display { font-family: var(--bs-font-display); text-transform: uppercase; letter-spacing: .01em; }
+.bs-btn { min-height: var(--bs-tap-target); padding: 0 var(--bs-space-6); border: 0; border-radius: var(--bs-radius-pill);
+  background: var(--bs-red); color: var(--bs-cream); font: 700 1.125rem var(--bs-font-body); box-shadow: var(--bs-shadow-pop);
+  transition: transform var(--bs-dur-tap) var(--bs-ease-pop), box-shadow var(--bs-dur-tap); }
+.bs-btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--bs-red-dark); }
+.bs-btn--gold { background: var(--bs-gold); color: var(--bs-deep); box-shadow: 0 6px 0 var(--bs-gold-dark); }
+.bs-badge { display: inline-block; padding: 6px 16px; border-radius: var(--bs-radius-pill); background: var(--bs-gold); color: var(--bs-deep); font: 700 .8125rem var(--bs-font-body); letter-spacing: .12em; text-transform: uppercase; }
+@media (prefers-reduced-motion: reduce) { .bs-btn { transition: none; } }
