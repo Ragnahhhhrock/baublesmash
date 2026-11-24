@@ -54,6 +54,7 @@ gtag('config', 'G-1GPDP7S5W6');
   td:first-child{font-size:26px;text-align:center}
   button{background:#c0392b;color:#fff;border:0;border-radius:36px;min-height:56px;min-width:200px;padding:14px 44px;font-size:24px;font-weight:700;cursor:pointer;touch-action:manipulation;box-shadow:0 4px 0 #7b241c}
   button:active{transform:translateY(3px);box-shadow:0 1px 0 #7b241c}
+  #tally.hidden{display:none}
   #tally{margin:0 0 12px;color:#ffd86b;font-size:18px;font-weight:700}
   #tally b{font-size:1.3em}
   .hs{margin-top:16px;color:#ffd86b;font-size:15px}
@@ -103,7 +104,7 @@ gtag('config', 'G-1GPDP7S5W6');
     <tr><td>🪨</td><td>Lump of coal: leave it alone!</td></tr>
   </table>
   <div class="sub">Miss a bauble or smash coal and you lose a life.</div>
-  <div id="tally">🔴 <b id="tallyN">0</b> baubles smashed <span id="tallyL">on this device</span></div>
+  <div id="tally" class="hidden">🔴 <b id="tallyN">0</b> baubles smashed worldwide</div>
   <div id="nameRow"><input id="pname" maxlength="12" placeholder="Your name" autocomplete="off"></div>
   <button id="play">Play</button>
   <button class="hsbtn" id="hsBtn0">🏆 High scores</button>
@@ -159,15 +160,14 @@ document.addEventListener('touchmove',e=>{if(!e.target.closest('.overlay'))e.pre
 const TOP=10;
 function loadHS(){try{return JSON.parse(localStorage.getItem('baubleHS')||'[]').map(e=>typeof e==='number'?{score:e,level:null,name:'',t:0}:e).filter(e=>e&&e.score>0)}catch(e){return[]}}
 function saveHS(e){try{const a=loadHS();a.push(e);a.sort((x,y)=>y.score-x.score||(x.t||0)-(y.t||0));localStorage.setItem('baubleHS',JSON.stringify(a.slice(0,TOP)));}catch(e){}}
-// ---- baubles-smashed tally (device total always; world total when the worker answers) ----
-let devTotal=0,worldTotal=null,unsent=0;
-try{devTotal=parseInt(localStorage.getItem('baubleTotal'),10)||0;unsent=parseInt(localStorage.getItem('baubleUnsent'),10)||0;}catch(e){}
+// ---- worldwide baubles-smashed tally (shown only once the worker answers) ----
+let worldTotal=null,unsent=0;
+try{unsent=parseInt(localStorage.getItem('baubleUnsent'),10)||0;}catch(e){}
 function renderTally(){
-  const w=worldTotal!==null;
-  $('tallyN').textContent=(w?worldTotal:devTotal).toLocaleString();
-  $('tallyL').textContent=w?'worldwide':'on this device';
+  if(worldTotal===null)return;
+  $('tallyN').textContent=worldTotal.toLocaleString();$('tally').classList.remove('hidden');
 }
-function saveTally(){try{localStorage.setItem('baubleTotal',devTotal);localStorage.setItem('baubleUnsent',unsent);}catch(e){}}
+function saveTally(){try{localStorage.setItem('baubleUnsent',unsent);}catch(e){}}
 function loadTotal(){fetch(TOTAL_API).then(r=>r.json()).then(d=>{if(typeof d.total==='number'){worldTotal=d.total;renderTally();}}).catch(()=>{});}
 function flushTotal(){
   const n=Math.min(unsent,500);if(n<1)return loadTotal();
@@ -301,7 +301,7 @@ function hit(px,py){
       if(T.bad){stats.coal++;burst(o.x,o.y,'#222',22,240);float(o.x,o.y,'-1 ❤️','#ff6b6b');sfx.bad();loseLife();}
       else if(T.life){stats.life++;if(lives<MAXL)lives++;setLives();burst(o.x,o.y,'#ffffff',26,260);float(o.x,o.y,'+1 life','#9fffc0');sfx.life();}
       else{
-        stats.smashed++;devTotal++;unsent++;saveTally();if(o.type==='gold')stats.gold++;score+=T.pts;$('score').textContent=score;
+        stats.smashed++;unsent++;saveTally();if(o.type==='gold')stats.gold++;score+=T.pts;$('score').textContent=score;
         const c=o.type==='gold'?'#ffd86b':o.type==='grinch'?'#5fe05f':o.col;
         burst(o.x,o.y,c,o.type==='red'?18:30,o.type==='red'?260:340);burst(o.x,o.y,'#fff',6,200);
         float(o.x,o.y,'+'+T.pts,c);
