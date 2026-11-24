@@ -314,7 +314,7 @@ function spawn(){
 function burst(x,y,col,n,spd){for(let i=0;i<n;i++){const a=Math.random()*6.283,s=(.3+Math.random())*(spd||260);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-80,life:.6+Math.random()*.5,age:0,c:col,sz:3+Math.random()*5,rot:Math.random()*6});}}
 function float(x,y,txt,col){floats.push({x,y,txt,col,age:0});}
 function setLives(){let s='';for(let i=0;i<lives;i++)s+='❤️';$('lives').textContent=s||'💔';}
-function loseLife(x,y){lives--;shake=.3;setLives();sfx.miss();if(lives<=0)endGame();}
+function loseLife(x,y){streak=0;lives--;shake=.3;setLives();sfx.miss();if(lives<=0)endGame();}
 
 // ---- Google Analytics events (safe no-op if gtag is blocked) ----
 function ga(n,p){try{if(typeof gtag==='function')gtag('event',n,p||{});}catch(e){}}
@@ -324,7 +324,7 @@ function startGame(){
   ga('level_start',{level_name:'main',play_number:plays,is_replay:plays>1});
   commitScore();
   lastEntry=null;lv=1;$('lvl').textContent='Lv 1';
-  score=0;lives=3;items=[];parts=[];floats=[];elapsed=0;spawnT=.3;shake=0;
+  score=0;lives=3;items=[];parts=[];floats=[];shouts.length=0;streak=0;shoutCd=0;elapsed=0;spawnT=.3;shake=0;
   $('score').textContent=0;setLives();
   document.body.classList.remove('menu');$('start').classList.add('hidden');$('over').classList.add('hidden');$('pause').classList.add('hidden');
   state='play';resize();showBanner(1);
@@ -372,13 +372,13 @@ function hit(px,py){
     if(Math.hypot(o.x-px,o.y-py)<=rr){
       o.dead=true;const T=TYPES[o.type];
       if(T.bad){stats.coal++;burst(o.x,o.y,'#222',22,240);float(o.x,o.y,'-1 ❤️','#ff6b6b');sfx.bad();loseLife();}
-      else if(T.life){stats.life++;if(lives<MAXL)lives++;setLives();burst(o.x,o.y,'#ffffff',26,260);float(o.x,o.y,'+1 life','#9fffc0');sfx.life();}
+      else if(T.life){stats.life++;if(lives<MAXL)lives++;setLives();burst(o.x,o.y,'#ffffff',26,260);float(o.x,o.y,'+1 life','#9fffc0');sfx.life();shout('life');}
       else{
         stats.smashed++;unsent++;saveTally();if(o.type==='gold')stats.gold++;score+=T.pts;$('score').textContent=score;
         const c=o.type==='gold'?'#ffd86b':o.type==='grinch'?'#5fe05f':o.col;
         burst(o.x,o.y,c,o.type==='red'?18:30,o.type==='red'?260:340);burst(o.x,o.y,'#fff',6,200);
         float(o.x,o.y,'+'+T.pts,c);
-        o.type==='gold'?sfx.gold():o.type==='grinch'?sfx.grinch():sfx.smash();
+        o.type==='gold'?sfx.gold():o.type==='grinch'?sfx.grinch():sfx.smash();shout(o.type);
         if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){}
       }
       return;
@@ -446,7 +446,42 @@ function geo(){const apexY=H*.08,baseY=H*.9,bw=Math.min(W*.5,(baseY-apexY)*.6);r
 
 // ---- dance engine: follows the music's bass hits, falls back to a steady 120bpm ----
 let an=null,fd=null,bt=0,bps=2,kick=0,lastBeat=-9,bassAvg=0,lastFloor=0;
-const notes=[];let dxs=[],dGround=0;
+const notes=[],shouts=[];let dxs=[],dGround=0,dS=14,shoutCd=0,streak=0;
+const PHRASES={smash:['Nice!','Ho ho ho!','Smashing!','Great job!','Keep going!','Wow!','Yeah!','Merry smash!','You rock!','Jingle smash!','Sleigh it!'],
+  gold:['Golden!','Ooh, sparkly!','Jingle bells!'],life:['Extra life!','Brrr-illiant!'],grinch:['You got the Grinch!','Legend!']};
+function shout(type){
+  if(!dxs.length)return;
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  let txt;
+  if(type==='smash'||type==='red'||type==='gold'||type==='grinch'){streak++;}
+  if(type==='smash'||type==='red'||type==='gold'||type==='grinch'){if(streak%10===0)txt=pick(['Unstoppable!','On fire! 🔥','Combo x'+streak+'!']);}
+  const special=type==='gold'||type==='grinch'||type==='life'||!!txt;
+  if(!special&&shoutCd>0)return;
+  if(!txt)txt=pick(PHRASES[type==='red'?'smash':type]||PHRASES.smash);
+  shoutCd=.3;kick=Math.max(kick,.8);
+  shouts.push({x:pick(dxs),txt,age:0,big:special});
+  if(shouts.length>3)shouts.shift();
+}
+function drawShouts(dt){
+  if(state==='play'){shoutCd-=dt;for(const o of shouts)o.age+=dt;}
+  for(let i=shouts.length-1;i>=0;i--)if(shouts[i].age>1.3)shouts.splice(i,1);
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const o of shouts){
+    const D=1.3,a=o.age,pop=Math.min(1,a/.12),fade=a>D-.3?(D-a)/.3:1;
+    const fs=o.big?19:16;ctx.font=`800 ${fs}px system-ui`;
+    const tw=ctx.measureText(o.txt).width,bw=tw+22,bh=fs+14;
+    const x=Math.max(bw/2+4,Math.min(W-bw/2-4,o.x)),y=dGround-dS*5.7-a*18;
+    ctx.save();ctx.globalAlpha=Math.max(0,fade);ctx.translate(x,y);const sc=.3+.7*(1-Math.pow(1-pop,3))+(a<.2?.12*Math.sin(pop*3.14):0);ctx.scale(sc,sc);
+    ctx.fillStyle=o.big?'#ffd86b':'#fff';ctx.strokeStyle='#c0392b';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.roundRect?ctx.roundRect(-bw/2,-bh/2,bw,bh,bh/2):ctx.rect(-bw/2,-bh/2,bw,bh);ctx.fill();ctx.stroke();
+    const tx=Math.max(-bw/2+12,Math.min(bw/2-12,o.x-x));
+    ctx.beginPath();ctx.moveTo(tx-6,bh/2-1);ctx.lineTo(tx,bh/2+9);ctx.lineTo(tx+6,bh/2-1);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle='#fff';ctx.fillRect(tx-5,bh/2-3,10,4);ctx.fillStyle=o.big?'#ffd86b':'#fff';ctx.fillRect(tx-5,bh/2-3,10,3);
+    ctx.fillStyle='#8e1f1f';ctx.fillText(o.txt,0,1);
+    ctx.restore();
+  }
+  ctx.globalAlpha=1;
+}
 function hookAnalyser(){
   if(an||!AC)return;
   try{const src=AC.createMediaElementSource(music),a=AC.createAnalyser();a.fftSize=512;a.smoothingTimeConstant=.4;src.connect(a);a.connect(AC.destination);an=a;fd=new Uint8Array(a.frequencyBinCount);}catch(e){an=null;}
@@ -658,7 +693,7 @@ function drawBG(dt){
   ctx.fillStyle='#f6fbff';ctx.beginPath();ctx.moveTo(0,H);for(let x=0;x<=W;x+=20)ctx.lineTo(x,H-14-Math.sin(x*.03)*6);ctx.lineTo(W,H);ctx.fill();
   const gy=H-9;dGround=gy;
   if(state!=='menu'){
-    const s=Math.max(11,Math.min(H*.026,W*.05));
+    const s=Math.max(11,Math.min(H*.026,W*.05));dS=s;
     drawGift(ctx,G.cx-G.bw*.34,gy,s*1.9,'#d62828','#ffd86b',0);
     drawGift(ctx,G.cx+G.bw*.3,gy,s*1.6,'#1d6fd6','#fff',1);
     drawGift(ctx,G.cx+G.bw*.5,gy,s*1.2,'#8e44ad','#ff9ad5',2);
@@ -737,6 +772,7 @@ function frame(now){
   ctx.textAlign='center';ctx.font='bold 26px system-ui';
   for(const f of floats){ctx.globalAlpha=1-f.age/.8;ctx.fillStyle=f.col;ctx.fillText(f.txt,f.x,f.y-f.age*60);}
   ctx.globalAlpha=1;
+  drawShouts(dt);
   if(banner){
     if(state==='play')banner.age+=dt;
     const D=1.9,a=banner.age;
