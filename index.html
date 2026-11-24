@@ -121,6 +121,15 @@ gtag('config', 'G-1GPDP7S5W6');
   .chip small{font-size:.74rem;line-height:1.2;color:#9fc4b1}
   .chip.good{border-color:rgba(255,59,78,.5)}.chip.gold{border-color:rgba(255,213,74,.6)}.chip.snow{border-color:rgba(191,230,255,.5)}.chip.rare{border-color:rgba(63,212,122,.7)}
   .chip.bad{border-color:rgba(255,77,109,.6)}.chip.bad small{color:#ff9db0}
+  #homeScores{width:min(100%,380px);background:rgba(8,28,20,.84);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:12px 16px 8px;text-align:left}
+  #homeScores h3{margin:0 0 4px;font-size:1.1rem;letter-spacing:.05em;color:#ffd86b}
+  #homeScores ol{list-style:none;margin:0;padding:0}
+  #homeScores li{display:grid;grid-template-columns:2.2em 1fr auto;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);font-weight:500}
+  #homeScores li:last-child{border-bottom:0}
+  #homeScores li>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #homeScores .rank{color:#9fc4b1;text-align:center}
+  #homeScores .pts{font-weight:700;color:#ffd86b;font-variant-numeric:tabular-nums}
+  #homeScores .empty{display:block;color:#9fc4b1;padding:8px 0 10px}
   #start .foot{margin-top:6px}
   @media (max-height:700px){.chip small{display:none}}
   @media (max-height:640px){#stage{height:88px}}
@@ -146,7 +155,8 @@ gtag('config', 'G-1GPDP7S5W6');
     <li class="chip bad"><span class="face">🪨</span><b>Coal</b><small>Leave it</small></li>
   </ul>
   <button id="play">Play</button>
-  <button class="hsbtn" id="hsBtn0">🏆 World high scores</button>
+  <div id="homeScores"><h3>WORLD HIGH SCORES</h3><ol id="homeScoreList"><li class="empty">Loading…</li></ol></div>
+  <button class="hsbtn" id="hsBtn0">🏆 See all high scores</button>
   <div class="foot">
     <a class="cocoa" href="https://buy.stripe.com/3cI4gr1PPfcx4gU0UcaAw0c" target="_blank" rel="noopener">☕ Buy me a cup of Hot Cocoa</a>
     <div style="margin-top:12px">Another <a href="https://malgordon.com" target="_blank" rel="noopener">Mal Gordon</a> creation</div>
@@ -229,7 +239,15 @@ function submitGlobal(e){
 }
 
 // ---- high score table ----
+function renderHome(){
+  const el=$('homeScoreList');if(!el)return;
+  if(world===null){el.innerHTML='<li class="empty">World scores unavailable right now.</li>';return;}
+  if(!world.length){el.innerHTML='<li class="empty">No scores yet. Be the first!</li>';return;}
+  const m=['🥇','🥈','🥉'];
+  el.innerHTML=world.slice(0,5).map((r,i)=>`<li><span class="rank">${m[i]||i+1}</span><span>${esc(r.name||'Anon')}</span><span class="pts">${r.score}</span></li>`).join('');
+}
 function renderScores(){
+  renderHome();
   $('tabWorld').classList.toggle('on',tab==='world');$('tabMine').classList.toggle('on',tab==='mine');
   const list=tab==='world'?world:loadHS();
   if(list===null){$('scoreTable').innerHTML='<div class="empty">World scores unavailable right now.</div>';return;}
@@ -381,6 +399,7 @@ $('saveName').addEventListener('click',commitScore);
 $('saveName').addEventListener('touchend',e=>{e.preventDefault();commitScore();},{passive:false});
 $('pname').addEventListener('keydown',e=>{if(e.key==='Enter')commitScore();});
 $('hsBtn0').addEventListener('click',showScores);
+loadGlobal();
 $('hsBtn1').addEventListener('click',showScores);
 $('scoresClose').addEventListener('click',()=>$('scores').classList.add('hidden'));
 $('tabWorld').addEventListener('click',()=>{tab='world';renderScores();});
